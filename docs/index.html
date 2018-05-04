@@ -14,6 +14,19 @@
   h1, h2, h3, h4 {
     font-family: 'Source Sans Pro', sans-serif;
   }
+  td {
+  	padding: 15px;
+  	color:white;
+  	background:green;
+  }
+  a.hidden {
+  	color:black;
+  	text-decoration-line: none;
+  }
+  a.bar {
+  	color:cyan;
+  	text-decoration-line: none;
+  }
 </style>
 <title>CS 184 Final Project</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -21,25 +34,93 @@
 </head>
 
 
-<body>
+<body id="I0">
 
 <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2018</h1>
 <h1 align="middle">Final Project: OpenGL Game</h1>
 <h2 align="middle">Group Members: Kenny Ng, Jonathan Gong, Lorenzo Abesamis</h2>
 
+<div align="center">
+    <table style="width=100%">
+        <tr>
+            <td align="middle">
+            	<a class="bar" href="#I1">Abstract</a>    
+            </td>
+            <td align="middle">
+            	<a class="bar" href="#I2">Technical Approach</a>
+            </td>
+            <td align="middle">
+            	<a class="bar" href="#I3">Results</a>
+            </td>
+            <td align="middle">
+            	<a class="bar" href="#I4">References</a>
+            </td>
+            <td align="middle">
+            	<a class="bar" href="#I5">Contributions</a>
+            </td>
+        </tr>
+    </table>
+</div>
 <br><br>
 
-<div>
+<h2 align="middle"><a class="hidden" id="I1" href="#I0">Abstract</a></h2>
+<p>We built a well-optimized Unity game using the Unity engine and simulation algorithms. The game features grass renderings, realistic player animations, raycasting, procedural terrain generation, and shaders. We have used physics simulation methods like raycasting and custom melee scripts to implement our melee combat, which simulates melee combat to an accurate extent. Furthermore, we have created an interactive standalone water simulation in Unity that uses the iWave algorithm to create realistic waves.</p>
 
-<h2 align="middle">Project Milestone</h2>
-<p>Our goal is to create a survival game in Unity with realistic visual effects, melee combat, and animations. Due to switching from our original project proposal, we still have several features to complete our polish before final submission.</p>
+<p>We chose this project because we have a mutual interest in game programming. Games today have very realistic and interactive environments that heighten the player experience. We were inspired by the challenges of simulating such elements as water and grass. Our code for simulations is written from scratch and derived from academic journals regarding material simulation. We also used original code to implement the basic mechanics of the game.</p>
+<br><br>
 
-<p> We have currently implemented a custom script to produce a day-night cycle, taking advantage of Unity's capacity for realtime global illumination. We have a reflection probe and custom water shaders to implement realtime reflections and realistic water. We have completed animations for attacking, sprinting, and remaining idle, as as well as a script to handle smooth transitions between them. Our melee combat uses raycasting from a first person camera to determine distance to targets and whether they lie in combat range.</p>
+<h2 align="middle"><a class="hidden" id="I2" href="#I0">Technical Approach</a></h2>
 
-<p>Here are <a href="https://docs.google.com/presentation/d/1VZz4v2Jd9VEPKAnmileDMTZIRhLzaxLM3KX5OLAMijk/edit?usp=sharing" target="_blank">slides</a> and <a href="https://www.youtube.com/watch?v=zWoAysytc_c" target="_blank">video</a> links.</p>
+<h3 align="middle"><a class="hidden" href="#I2">Water Simulation</a></h3>
 
-<p>Future features include: realistic models, water shader animations, wind effects, cloth simulation, procedural terrain generation using perlin noise sampling, and more polished shaders and animations.</p>
+<p>Realistic computer generated ocean surfaces have been used routinely in film features and were basically ported to video games. The algorithm for these surfaces historically used FFT to craft random noise that evolves over time. These algorithms, however, did not give interactivity between objects and the water’s surface. It would be difficult, for example, to have characters wade through a stream and generate a disturbance that depends directly on the motion that the player controls, as this would cause significant FPS lag using FFT. We used the iWave algorithm, which amounts to a two dimensional convolution and some masking operations. The algorithm is efficient because these operations are suitable for hardware acceleration. We see in the results that the waves generated are affected by the speed of mouse movement.</p>
 
+<p>What makes this part of our project unique is its interactivity and realistic variable response to different interactions (speed of movement). Moving on to implementation, we made a custom water mesh (normal planes have immutable resolution which doesn’t work with our algorithm) and a script to generate it. The script works by figuring out how many vertices we need based on the size of the water and then builds the triangles needed and adds them to an array. The implementation of the iWave algorithm starts precomputing the kernel values and storing them in a lookup table, which we implemented in the second image.</p>
+
+<p>We also wrote functions to evaluate the vertical derivatives of the height grid and implemented a scheme for time stepping. The heart of the algorithm involved us convolving the height values with the kernel to obtain the vertical derivative and then updating the heights according to these vertical derivatives.</p>
+
+<p>Our approach varied from the paper’s in that we had to add damping because The iWave algorithm is highly dependent on the time parameter in the algorithm. Sometimes when the time parameter is too high, the algorithm will be unstable and produce waves that are too large. We prevent these large waves from occuring with a velocity damping term called alpha, but only if time is constant. So, we make sure in our update method that time is constant. A unique decision we made was to increase the longevity of the waves (the amount of time that passes before the waves calm down and become invisible). We did this because we felt like it made the effect look more realistic and visually stimulating.</p>
+
+<p>Some of the problems we encountered for this part were incompatibility issues with Unity (which is why the water simulation is standalone). Some other problems included frame rate lag and inefficiency in our code. In order to fix the lag, I initially tried to use code that adhered to a parallel programming model so I could utilize all the cores on my CPU, but then I realized the much more efficient solution would be to just use my GPU to render the effects in real time. One of the original problems that I encountered was that the default plane in Unity was problematic when trying to make a water mesh because its resolution is not controllable, I solved this by creating a custom mesh that has variable resolution and a script to generate the mesh.</p>
+
+<p>Some of the lessons learned from this part include the importance of algorithms using operations that benefit from hardware acceleration. I learned that the iWave algorithm is successful because it uses convolution and masking instead of FFTs, which makes it very fast on modern computers. I also learned about the tradeoff that Unity gives: many things are very easy to get running like realtime global illumination, but the tradeoff is cross-compatibility and customizability. I also learned the benefits of creating custom objects in programs like Unity (in my custom water mesh) because of the ability to change parameters that are normally hard to access.</p>
+
+<h3 align="middle"><a class="hidden" href="#I2">Grass Renderings</a></h3>
+
+<p>Simulating realistic natural grass to cover a large area of the terrain that has little impact towards the GPU is a rather difficult thing to do. However, in this project, we showcase two different grass rendering methods that both utilize ray casting, but one method is based off of instancing and the other a point cloud method. I created a custom point cloud grass renderer to render grass much more efficiently. The instancing and ray casting method can only generate 1000 instances of grass max before experiencing a major loss in frame rate. Before implementing these grass renderers, we had to design a mesh that when mapped to a grass texture, the grass looked uniform and real from any camera angle. In order to achieve this, by utilizing an application called Blender, I designed a mesh with 3 intersecting quads that appear symmetrical from every angle and wrote a custom shader that turned culling off and clipped the part of the quad where the grass did not appear, which made the grass more immersed in the terrain it was placed. For the simple grass renderer, we utilized ray casting by casting rays from a specified height and generating pseudorandom numbers from a seed to construct a random layout but organized layout of the grass that depended on a grass offset and size, which influences how dense the grass is. When the ray hits the terrain, it sets the origin point to the hit point and creates an instance of the mesh at the location.This is done every time depending on the grass number. For point cloud rendering, we can render much more grass, significantly more than 1000 instances, and can potentially be made more realistic and dynamic paired with a geometric shader. The implementation is very similar except that for every vertex in the mesh, we ray cast and store the position and direction in each of them, which has less impact on the GPU and is much easier to render.</p>
+
+<p>Creating the custom geometric shader was rather long and difficult in pairing up with the point cloud grass renderer. It required an intensive understanding of geometric shaders and how to manipulate the vertices of quads. I was able to tackle this problem through tutorials of how to utilize the geometric shader, but was unable to design an efficient geometric shader. However, I decided to abandon the idea and designed a simple red glowing material just to showcase the concept of the point cloud rendering method. This implementation was able to reveal every raycasted point that hit the terrain from every vertex with a highlighted glowing material to portray how grass would’ve been if at each point it was replaced by an instance of a grass instance. This was enough to also show that the point cloud method had the capability to render much more grass on the terrain without a significant loss in frame rate.</p>
+<p>
+From this part of the project, we learned how to fool camera angles by designing 3D meshes that appear symmetrical from all lines of sight. Additionally, we learned how to modify existing shaders from Unity with custom code to create the realistic renders from materials we want. To expand on this final project in the future, we can make the grass much more dynamic with animations by applying the Fast Fourier Transform and a wind implementation to make a general grass simulation. Moreover, we can implement a grass physics system, when trampled on by heavier objects compared to lighter objects, the grass will take much longer to return to its normal state after it bends.</p>
+
+<h3 align="middle"><a class="hidden" href="#I2">Animations and Other Related Implementations</a></h3>
+
+In this part of the project, we imported an arm model and its relative animations. We then created a custom script that allowed the player to transition from an animation to another animation smoothly when a specific key is pressed by utilizing the animation controller. The general state has an idle animation that will always run when the game is played. When the “Left Shift” key is held, the run animation will be transitioned and will continue to run until the “Left Shift” key is lifted. From the idle state, we implemented two melee animations, left punch and right punch.When the “Left Mouse Button” is pressed, our custom script randomizes whether to punch with the left or right. Furthermore, we implemented a custom melee system that makes use of these animations by shooting a ray from the first person camera towards the object it is facing, and calculating the distance between the two. By utilizing this distance and restricting it under a max distance, custom damage is applied toward the “enemy”, and when it’s health reaches 0, the game object is destroyed. </p>
+<p>
+From this part of the project, the only difficulty was learning how to utilize Unity’s animation controller as we are relatively new with the Unity game engine. After reading through multiple explanations and documentations, we were able to construct a custom script with triggers and booleans to create efficient transitions from one animation to another.</p>
+<p>
+This is the part of the project where we learned a lot about Unity’s features, including how to create specific game objects with relative textures, and how to manipulate the components of these game objects under a custom script. Additionally, we learned how to generate our own animations through recordings of transformations, such as rotating and translating, and utilizing the animation controller to construct transitions from state to state under conditions we place on them.</p>
+<br><br>
+
+
+<h2 align="middle"><a class="hidden" id="I3" href="#I0">Results</a></h2>
+<p align="middle">Our final project <a href="https://www.youtube.com/watch?v=yk7YXFdvAig&feature=youtu.be" target="_blank">video</a>.</p>
+<br><br>
+
+<h2 align="middle"><a class="hidden" id="I4" href="#I0">References</a></h2>
+<p align="middle"><a href="http://jtessen.people.clemson.edu/papers_files/Interactive_Water_Surfaces.pdf" target="_blank">Water Surfaces in Games</a> by Jerry Tessendorf</p>
+<p align="middle"><a href="https://developer.nvidia.com/gpugems/GPUGems/gpugems_ch07.html" target="_blank">GPU Gems: Rendering Countless Blades of Waving Grass</a> by Kurt Pelzer and Piranha Bytes</p>
+<br><br>
+
+
+
+<h2 align="middle"><a class="hidden" id="I5" href="#I0">Contributions</a></h2>
+
+<p>Lorenzo: deciphered the iWave paper with Jonathan, created a custom water mesh and a script to generate the mesh, implemented functions to apply kernel and evaluate vertical derivatives for the Water Simulation, implemented precomputation of the kernel values and lookup table for the iWave algorithm</p>
+
+<p>Jonathan: deciphered the iWave paper with Lorenzo, implemented scheme for time stepping, added and integrated alpha value to introduce damping in the waves, increased wave longevity, optimization (parallel programming) code, convolution functions, method to create interactivity with mouse in Unity for Water Simulation, implemented heart of the iWave algorithm: updating heights according to vertical derivative and alpha/gravity</p>
+
+<p>Kenny: implemented both grass renderers that utilized a raycasting and instancing system, and the latter of the grass renderers that make use of the point cloud method to render grass mch more efficiently. Utilized Unity and Blender’s features to design the terrain, meshes, textures, and layouts of the open environment type game. Also, utilized imported models and animations to create a custom script that manipulates these animations and transitions under Unity’s animation controller when specific keys are pressed. Created a simple melee system that makes use of ray casts to showcase the potential survival game this project could be for the future. </p>
 
 </body>
 </html>
